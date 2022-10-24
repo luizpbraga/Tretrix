@@ -76,6 +76,16 @@ const Background = struct {
         //std.time.sleep(1e8); // talvez remover
     }
 
+    fn checkLine(self: *Background) void {
+        var row: usize = 0;
+        while (row <= Background.rowMax) : (row += 1)
+            if (std.mem.eql(u8, &self.lines[row], "#" ** 10)) {
+                var row_: usize = row;
+                while (row_ != 0) : (row_ -= 1)
+                    self.lines[row_] = self.lines[row_ - 1];
+            };
+    }
+
     fn clear(_: Background) !void {
         const exec = try std.ChildProcess.exec(.{
             .allocator = std.heap.page_allocator,
@@ -85,13 +95,13 @@ const Background = struct {
     }
 };
 
-const Piece = struct {
-    bar: Bar,
-    tee: Tee,
-    kink: Kink,
-    elbow: Elbow,
-    square: Square,
-};
+//const Piece = struct {
+//  bar: Bar,
+//  tee: Tee,
+//  kink: Kink,
+//  elbow: Elbow,
+//  square: Square,
+//};
 
 // BAR
 const Bar = struct {
@@ -361,8 +371,11 @@ const Square = struct {
     // RETORNA FALSE se o jogo nao tiver mais possibilidades de continuar
     fn init(self: *Square) !bool {
 
-        // fim do jogo;
-        if (self.counter != 1 and std.mem.count(u8, &bg.lines[0], "#") != 0) return false;
+        // ''fim do jogo'';
+        if (self.counter != 1 and std.mem.count(u8, &bg.lines[0], "#") != 0) {
+            playing = false;
+            return false;
+        }
 
         // atualizar o BG com a jogada atual
         self.draw('#');
@@ -380,7 +393,8 @@ const Square = struct {
         {
             self.row = 0;
             self.col = 4;
-            return true;
+            // TODO: add novas peças e mudar pra return false;
+            return true; // fim d jogada: return false
         }
         // remover a jogada anterior
         self.erase();
@@ -393,6 +407,7 @@ const Square = struct {
     }
 
     fn play(self: *Square) !bool {
+        bg.checkLine();
         if (!try self.init()) return false;
 
         var buf: [1]u8 = undefined;
@@ -424,8 +439,10 @@ const Square = struct {
             .Exit => bg.lines[0][4] = '#',
             .Jump => {
                 // BUG: REcomeçar na linha 0 e nao na 1
-                while (bg.lines[self.row + 2][self.col] != '#') : (self.row += 1) {
-                    _ = try self.init();
+                {
+                    while (bg.lines[self.row + 2][self.col] != '#') : (self.row += 1) {
+                        _ = try self.init();
+                    }
                 }
             },
             else => {},
@@ -437,10 +454,28 @@ const Square = struct {
 
 // Global Background
 var bg = Background{};
+var playing = true;
 
 pub fn main() !void {
     var box = Square{};
-    while (try box.play()) {}
+
+    const Piece = enum {
+        Square,
+        Bar,
+        Tee,
+        Kink,
+        Elbow,
+    };
+
+    while (playing) {
+        const rand_shoice = 0;
+        const piece = @intToEnum(Piece, rand_shoice);
+        switch (piece) {
+            .Square => while (try box.play()) {},
+            else => {},
+        }
+    }
+
     try stdout.print("VC PERDEU!", .{});
 
     //var square = Square{};
