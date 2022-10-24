@@ -2,7 +2,7 @@
 // Peça X é inicializada => Background é atualizado
 // Background é printado;
 // Acao é linda
-// Background é limpado
+// Background é limpo
 // Acao é executada =>  A peça X se move => Background é atualizado : substitui o desenho anterior pelo novo
 // Background é printado;
 
@@ -12,14 +12,33 @@
 // TODO: FUNCAO PRA ANALiSAR A AçÃO
 // TODO: APAGAR OU DESENHAR? ENUM ?
 // TODO: COMO ELE VAI RODAR?
-// INFO: ENUM + WHILE + RANGENUMBER + SWITCH = play
-// INFO: solucao para o problema do "apagamento": struct anonima na  funcao init + destroy
+// TODO: READ KEYBOAD (RAW) inPUT
+// INFO: ENUM + WHILE + Rand NUMBER + SWITCH = play
+// INFO: solução para o problema do "apagamento": struct anônima na função init + destroy
+// INFO: init ?
+// Limites do quadrado:
+// Se a[i,j] é a localizacao do primeiro '#' no Background:
+// se 0<=i<=17 e 0<=j<=7
+// a[i+2,j] != '#'
+// a[i,j-1] != '#'
+// a[i,j+2] != '#'
+//
 const std = @import("std");
 const stdin = std.io.getStdIn();
 const stdout = std.io.getStdOut().writer();
 
+const KeysMenu: [7][]const u8 = .{
+    "+-------------+",
+    "|Keys:        |",
+    "|  h => Left; |",
+    "|  l => Right;|",
+    "|  j => End;  |",
+    "|  q => Quit; |",
+    "+-------------+",
+};
+
 /// Avaliable Actions
-const Action = enum { Left, Right, Down, JumpToEnd, Rotate, Exit, Pause };
+const Action = enum { Left, Right, Down, Jump, Rotate, Exit, Pause };
 /// Draw or Erase de Shape
 const BgShape = enum(u8) { Draw = '#', Erase = '.' };
 // square dont rotate ;
@@ -36,7 +55,7 @@ const Background = struct {
 
     // Print in stdout the Background
     // clear and sleep may be removed in the feature
-    fn printBg(self: Background) !void {
+    fn print(self: Background) !void {
         try self.clear(); // talvez remover
         try stdout.print(
             \\+------------------------------+  
@@ -47,9 +66,14 @@ const Background = struct {
             \\
         , .{});
         for (self.lines) |line, n|
-            try stdout.print("{d}       {s}||{s}||\n", .{ n, if (n < 10) " " else "", line });
+            try stdout.print("{d} {s}||{s}||{s}\n", .{
+                n,
+                if (n < 10) " " else "",
+                line,
+                if (n < 7) KeysMenu[n] else " ",
+            });
         try stdout.print("+==============================+\n", .{});
-        std.time.sleep(0.5e9); // talvez remover
+        //std.time.sleep(1e8); // talvez remover
     }
 
     fn clear(_: Background) !void {
@@ -69,33 +93,6 @@ const Piece = struct {
     square: Square,
 };
 
-// SQUARE
-const Square = struct {
-    row: usize = 0,
-    col: usize = 4,
-    char: u8 = '#',
-
-    /// Inicializar o SQUARE no Background: row e col são modificados.
-    /// Essa função NUNCA modifica o valor de 'CHAR'.
-    /// Função ``destroy`` deve ser chamado após o uso
-    fn init(self: *Square, config: struct { row: usize = 0, col: usize = 4, char: u8 = '#' }) void {
-        self.col = config.col;
-        self.row = config.row;
-        bg.lines[self.row][self.col] = config.char;
-        bg.lines[self.row][self.col + 1] = config.char;
-        bg.lines[self.row + 1][self.col] = config.char;
-        bg.lines[self.row + 1][self.col + 1] = config.char;
-    }
-
-    fn destroy(self: *Square) void {
-        self.init(.{
-            .row = self.row,
-            .col = self.col,
-            .char = '.',
-        }); // se nao passar self.row ele usa 0 sempre!
-    }
-};
-
 // BAR
 const Bar = struct {
     col: usize = 3,
@@ -103,7 +100,7 @@ const Bar = struct {
     char: u8 = '#',
     orientation: BarOrientation = .H,
 
-    fn init(self: Bar) void {
+    fn new(self: Bar) void {
         const range = [_]usize{ 0, 1, 2, 3 };
         switch (self.orientation) { // #
             .V => { // #
@@ -125,7 +122,7 @@ const Tee = struct {
     char: u8 = '#',
     orientation: TeeOrientation = .D,
 
-    fn init(self: Tee) void {
+    fn new(self: Tee) void {
         switch (self.orientation) {
             .U => {
                 bg.lines[self.row][self.col + 1] = self.char;
@@ -162,7 +159,7 @@ const Kink = struct {
     char: u8 = '#',
     orientation: KinkOrientation = .VL,
 
-    fn init(self: Kink) void {
+    fn new(self: Kink) void {
         switch (self.orientation) {
             .VL => {
                 // #
@@ -209,7 +206,7 @@ const Elbow = struct {
     char: u8 = '#',
     orientation: ElbowOrientation = .HLD,
 
-    fn init(self: Elbow) void {
+    fn new(self: Elbow) void {
         //const range = [_]usize{ 0, 1, 2 };
         switch (self.orientation) {
             // diferem na segunda coluna
@@ -267,35 +264,204 @@ const Elbow = struct {
         }
     }
 };
+// // SQUARE
+// const Square = struct {
+//     row: usize = 0,
+//     col: usize = 4,
+//     char: u8 = '#',
+//     action: Action = .Down,
+//     /// Inicializar o SQUARE no Background: ROW e COL são modificados.
+//     /// Essa função NUNCA modifica o valor de 'CHAR'.
+//     /// Função ``destroy`` deve ser chamado após o uso
+//     fn new(
+//         self: *Square,
+//         config: struct {
+//             row: usize = 0,
+//             //col: usize = 4,
+//             char: u8 = '#',
+//         },
+//     ) void {
+//         // retornar ao 'centro'
+//         if (self.row >= 19) self.col = 4;
+//         //self.col = config.col;
+//         self.row = config.row;
+//         // nao desenhar quadrados da linha 19 >=
+//         if (self.row >= Background.rowMax) return;
+
+//         bg.lines[self.row][self.col] = config.char;
+//         bg.lines[self.row][self.col + 1] = config.char;
+//         bg.lines[self.row + 1][self.col] = config.char;
+//         bg.lines[self.row + 1][self.col + 1] = config.char;
+//     }
+
+//     fn destroy(self: *Square) void {
+//         // bounds
+//         if (self.row <= 18 and
+//             (bg.lines[self.row + 2][self.col] == '#' or
+//             bg.lines[self.row + 2][self.col + 1] == '#')) return;
+//         //
+//         self.new(.{
+//             .row = self.row,
+//             //.col = self.col,
+//             .char = '.',
+//         }); // se nao passar self.row ele usa 0 sempre!
+//     }
+
+//     fn readAction(self: *Square) !void {
+//         var buf: [1]u8 = undefined;
+//         _ = try stdin.read(&buf);
+
+//         // TODO: limitar a leitura da acao baseada na posicao da peça eg nao sobrescrecer
+//         self.action = if (buf.len > 0) switch (buf[0]) {
+//             'h' => .Left,
+//             'l' => .Right,
+//             else => .Down,
+//         } else .Down;
+//     }
+
+//     fn moove(self: *Square) !void {
+//         try self.readAction();
+//         switch (self.action) {
+//             .Left => if (self.col != 0) {
+//                 self.col -= 1;
+//             },
+//             .Right => if (self.col != 8) {
+//                 self.col += 1;
+//             },
+//             else => {},
+//         }
+//         self.new(.{});
+//     }
+
+//     fn init(self: *Square, config: struct {
+//         row: usize = 0,
+//         col: usize = 4,
+//     }) !void {
+//         try bg.print();
+//         self.new(.{ .row = config.row, .col = config.col });
+//         try bg.clear();
+//         try bg.print();
+//     }
+// };
+
+const Square = struct {
+    row: usize = 0,
+    col: usize = 4,
+    action: Action = .Down,
+    counter: usize = 1,
+    // desenha: nao faz verificacoes nem print;
+    fn draw(self: *Square, char: u8) void {
+        bg.lines[self.row][self.col] = char;
+        bg.lines[self.row][self.col + 1] = char;
+        bg.lines[self.row + 1][self.col] = char;
+        bg.lines[self.row + 1][self.col + 1] = char;
+    }
+
+    // regras de inicializacao sao implementadas aqui
+    // RETORNA FALSE se o jogo nao tiver mais possibilidades de continuar
+    fn init(self: *Square) !bool {
+
+        // fim do jogo;
+        if (self.counter != 1 and std.mem.count(u8, &bg.lines[0], "#") != 0) return false;
+
+        // atualizar o BG com a jogada atual
+        self.draw('#');
+        try bg.print();
+        std.debug.print("box[{d},{d}]: #{d}\n", .{
+            self.row,
+            self.col,
+            self.counter,
+        });
+        self.counter += 1;
+
+        // nao atravesar as ca ixas na horizontal
+        if (bg.lines[self.row + 2][self.col] == '#' or
+            bg.lines[self.row + 2][self.col + 1] == '#')
+        {
+            self.row = 0;
+            self.col = 4;
+            return true;
+        }
+        // remover a jogada anterior
+        self.erase();
+
+        return true;
+    }
+
+    fn erase(self: *Square) void {
+        self.draw('.');
+    }
+
+    fn play(self: *Square) !bool {
+        if (!try self.init()) return false;
+
+        var buf: [1]u8 = undefined;
+        _ = try stdin.read(&buf);
+        // TODO: limitar a leitura da acao baseada na posicao da peça eg nao sobrescrecer
+        self.action = if (buf.len > 0) switch (buf[0]) {
+            'h' => .Left,
+            'l' => .Right,
+            'j' => .Jump,
+            'q' => .Exit,
+            else => .Down,
+        } else .Down;
+
+        // BUG: problema com as diagonais
+        switch (self.action) {
+            .Left => if (self.col != 0 and (bg.lines[self.row][self.col - 1] != '#' or
+                bg.lines[self.row + 1][self.col - 1] != '#'))
+            {
+                self.col -= 1;
+            },
+            .Right => if (self.col != 8 and (bg.lines[self.row][self.col + 2] != '#' or
+                bg.lines[self.row + 1][self.col + 2] != '#'))
+            {
+                self.col += 1;
+            },
+            .Down => if (self.row < 18) {
+                self.row += 1;
+            },
+            .Exit => bg.lines[0][4] = '#',
+            .Jump => {
+                // BUG: REcomeçar na linha 0 e nao na 1
+                while (bg.lines[self.row + 2][self.col] != '#') : (self.row += 1) {
+                    _ = try self.init();
+                }
+            },
+            else => {},
+        }
+
+        return try self.init();
+    }
+};
 
 // Global Background
 var bg = Background{};
 
 pub fn main() !void {
-    var kink = Kink{};
-    _ = kink;
-    var tee = Tee{};
-    _ = tee;
-    var bar = Bar{};
-    _ = bar;
-    var square = Square{};
-    var elbow = Elbow{ .orientation = .VLU };
-    _ = elbow;
+    var box = Square{};
+    while (try box.play()) {}
+    try stdout.print("VC PERDEU!", .{});
 
-    //var piece = Piece{
-    //    .bar = bar,
-    //    .tee = tee,
-    //    .kink = kink,
-    //    .elbow = elbow,
-    //    .square = square,
-    //};
+    //var square = Square{};
 
-    // apenas o quadrado funciona:
-    var row: usize = 0;
-    while (row < Background.rowMax) : (row += 1) {
-        //piece.square.row = i;
-        square.init(.{ .row = row });
-        defer square.destroy();
-        try bg.printBg();
-    }
+    //// apenas o quadrado funciona:
+    //var row: usize = 0;
+    //while (true) : (row = 0) {
+    //    l1: while (row <= Background.rowMax) : (row += 1) {
+    //        //piece.square.row = i;
+    //        square.new(.{ .row = row });
+    //        try bg.print();
+    //        square.destroy();
+    //        // depois do 1o destroy
+    //        if (bg.lines[row + 1][square.col] == '#') {
+    //            // verificar a derota
+    //            if (std.mem.count(u8, &bg.lines[0], "#") != 0) return;
+    //            // comecar no 'centro'
+    //            square.col = 4;
+    //            break :l1;
+    //        }
+    //        try square.moove();
+    //    }
+    //}
 }
