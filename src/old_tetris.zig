@@ -51,7 +51,7 @@ const Background = struct {
 
     // Print in stdout the Background
     // clear and sleep may be removed in the feature
-    fn print(self: Self) !void {
+    fn print(self: *const Self) !void {
         try self.clear(); // talvez remover
         try stdout.print(
             \\+------------------------------+  
@@ -82,7 +82,7 @@ const Background = struct {
             };
     }
 
-    fn clear(_: Self) !void {
+    fn clear(_: *const Self) !void {
         const exec = try std.ChildProcess.exec(.{
             .allocator = std.heap.page_allocator,
             .argv = &[_][]const u8{"clear"},
@@ -276,7 +276,7 @@ const Bar = struct {
     fn init(self: *Bar) !bool {
 
         // ''fim do jogo'';
-        if (self.counter != 1 and std.mem.count(u8, &bg.it[0], "#") != 0) {
+        if (counter != 1 and std.mem.count(u8, &bg.it[0], "#") != 0) {
             playing = false;
             return false;
         }
@@ -286,15 +286,16 @@ const Bar = struct {
         try bg.print();
 
         // print inútil de informações
-        std.debug.print("y:{d}, x:{d}, #{d}, {}\n", .{
+        std.debug.print("y:{d}, x:{d}, #{d}, {}, {}\n", .{
             self.row,
             self.col,
-            self.counter,
+            counter,
             self.action,
+            playing,
         });
 
         // contador global
-        self.counter += 1;
+        counter += 1;
 
         // TODO: mover isso pra fn play
         // nao atravesar as barras na horizontal
@@ -330,7 +331,7 @@ const Bar = struct {
         // BUG : NAO FUNCIONA CORRETAMENTE PRA 'BAR': DELETA COM 8;
         bg.checkLine();
 
-        //
+        // inicio do jogo
         if (!try self.init()) return false;
 
         // TODO: ler o keyboard direto do hardware
@@ -402,7 +403,6 @@ const Square = struct {
     row: usize = 0,
     col: usize = 4,
     action: Action = .Down,
-    counter: usize = 1,
 
     // desenha: nao faz verificacoes nem print;
     fn draw(self: Square, char: u8) void {
@@ -421,25 +421,17 @@ const Square = struct {
     fn init(self: *Square) !bool {
 
         // ''fim do jogo'';
-        if (self.counter != 1 and std.mem.count(u8, &bg.it[0], "#") != 0) {
+        if (counter >= 1 and std.mem.count(u8, &bg.it[0], "#") != 0) {
             playing = false;
-            return false;
+            return playing;
         }
 
         // atualizar o BG com a jogada atual
         self.draw('#');
         try bg.print();
 
-        // print inútil de informações
-        std.debug.print("box[{d},{d}]: #{d}, {}\n", .{
-            self.row,
-            self.col,
-            self.counter,
-            self.action,
-        });
-
         // contador global
-        self.counter += 1;
+        counter += 1;
 
         // TODO: mover isso pra fn play
         // nao atravesar as caixas na horizontal
@@ -466,6 +458,13 @@ const Square = struct {
 
         //
         if (!try self.init()) return false;
+        // print inútil de informações
+        std.debug.print("box[{d},{d}]: #{d}, {}\n", .{
+            self.row,
+            self.col,
+            counter,
+            self.action,
+        });
 
         // TODO: ler o keyboard direto do hardware
         var buf: [1]u8 = undefined;
@@ -478,7 +477,6 @@ const Square = struct {
             'q' => .Exit,
             else => .Down,
         } else .Down;
-
         // BUG : problema com as diagonais
         switch (self.action) {
             .Left => if (self.col != 0 and (bg.it[self.row][self.col - 1] != '#' or
@@ -507,7 +505,7 @@ const Square = struct {
 // Global Background
 var bg = Background{};
 var playing = true;
-
+var counter: usize = 1;
 pub fn main() !void {
     var box = Square{};
     var bar = Bar{};
@@ -530,6 +528,5 @@ pub fn main() !void {
             // else => {},
         }
     }
-
     try stdout.print("\x1b[31;1mVC PERDEU!", .{});
 }
