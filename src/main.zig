@@ -1,7 +1,10 @@
 const std = @import("std");
-const print = std.debug.print;
+const fs = std.fs;
+const os = std.os;
+const mem = std.mem;
 const stdin = std.io.getStdIn();
 const stdout = std.io.getStdOut().writer();
+const print = std.debug.print;
 
 const Color = enum {
     const X = "\x1b[";
@@ -81,6 +84,31 @@ const BackGround = struct {
             .Purple => "34;1m",
             .Blue => "36;1m",
         } ++ w ++ Color.E;
+    }
+
+    fn read(_: *const Self) ![1]u8 {
+        var tty = try fs.cwd().openFile("/dev/tty", .{});
+        defer tty.close();
+
+        const original = try os.tcgetattr(tty.handle);
+        var raw = original;
+
+        raw.lflag &= ~@as(
+            os.linux.tcflag_t,
+            os.linux.ECHO | os.linux.ICANON | os.linux.ISIG | os.linux.IEXTEN,
+        );
+        raw.iflag &= ~@as(
+            os.linux.tcflag_t,
+            os.linux.IXON | os.linux.ICRNL | os.linux.BRKINT | os.linux.INPCK | os.linux.ISTRIP,
+        );
+        raw.cc[os.system.V.TIME] = 0;
+        raw.cc[os.system.V.MIN] = 1;
+
+        try os.tcsetattr(tty.handle, .FLUSH, raw);
+        var buf: [1]u8 = undefined;
+        _ = try tty.read(&buf);
+        try os.tcsetattr(tty.handle, .FLUSH, original);
+        return buf;
     }
 };
 
@@ -300,9 +328,14 @@ const Piece = struct {
 
         // inicio do jogo: Se nao der pra jogar -> retorne falso
         if (!try self.init()) return false;
+
         // TODO: ler o keyboard direto do hardware
-        var buf: [1]u8 = undefined;
-        _ = try stdin.read(&buf);
+        //  var buf: [1]u8 = undefined;
+        //  _ = try stdin.read(&buf);
+
+        // INFO:
+        // read the key
+        var buf = try bg.read();
 
         // TODO: limitar a leitura da acao baseada na posicao
         // da peça eg nao sobrescrecer
