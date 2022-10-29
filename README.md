@@ -8,7 +8,7 @@ It's not working (properly), but one day it will!
 #### Implemented shapes:
  - [X] Square;
  - [X] Bar;
- - [ ] Tee;
+ - [X] Tee;
  - [ ] Kink;
  - [ ] Elbow;
 
