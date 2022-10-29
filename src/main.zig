@@ -34,10 +34,10 @@ const BackGround = struct {
 
     it: [21][10]u8 = .{".".* ** 10} ** 20 ++ .{"#".* ** 10},
 
-    // Print in stdout the Background
-    // clear and sleep may be removed in the feature
+    // Print the Background in stdOut
     fn print(self: *const Self) !void {
-        try self.clear(); // talvez remover
+        try self.clear();
+        // Menu
         try stdout.print(
             \\+------------------------------------+  
             \\|    {s}:                        |
@@ -58,6 +58,7 @@ const BackGround = struct {
         try stdout.print("+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^+\n", .{});
     }
 
+    /// Check ir a line is full of "#"; If TRUE then delete it
     fn checkLine(self: *Self) void {
         var row: usize = 0;
         while (row <= BackGround.MAXROW) : (row += 1)
@@ -68,6 +69,7 @@ const BackGround = struct {
             };
     }
 
+    /// bash clear cmd
     fn clear(_: *const Self) !void {
         const exec = try std.ChildProcess.exec(.{
             .allocator = std.heap.page_allocator,
@@ -76,6 +78,7 @@ const BackGround = struct {
         try stdout.print("{s}", .{exec.stdout});
     }
 
+    //
     fn paint(_: *const Self, comptime w: []const u8, comptime c: Color) []const u8 {
         return Color.X ++ switch (c) {
             .Red => "31;1m",
@@ -86,10 +89,13 @@ const BackGround = struct {
         } ++ w ++ Color.E;
     }
 
+    /// Read the User input
     fn read(_: *const Self) ![1]u8 {
         var tty = try fs.cwd().openFile("/dev/tty", .{});
         defer tty.close();
 
+        // https://zig.news/lhp/want-to-create-a-tui-application-the-basics-of-uncooked-terminal-io-17gm \
+        // thanks Leon
         const original = try os.tcgetattr(tty.handle);
         var raw = original;
 
@@ -116,22 +122,31 @@ const Action = enum { Left, Right, Jump, Down, Rotate, Quit };
 
 const Shape = enum { Square, Bar, Tee, ElbowL, ElbowR, KinkL, KinkR };
 
+/// H1 is the default orientation.
+/// V1 = H1 rotated by pi/2
+/// H2 = V1 rotated by pi/2
+/// V2 = H1 rotated by pi/2
+/// H1 = V2 rotated by pi/2
 const Orientation = enum { H1, V1, H2, V2 };
 
 const Piece = struct {
     const Self = @This();
+
     // Characteristics
     shape: Shape,
     action: Action = .Down,
     orientation: Orientation = .H1,
+
     // coordinates
     row: usize = 0,
     col: usize = 3,
     counter: usize = 1,
 
     /// Desenha a peça: NAO MODIFICA NADA
+    // DRAW
     fn draw(self: *const Self, conf: struct { char: u8 = '#' }) void {
         const char = conf.char;
+
         switch (self.shape) {
             .Square => {
                 bg.it[self.row][self.col] = char;
@@ -139,6 +154,7 @@ const Piece = struct {
                 bg.it[self.row + 1][self.col] = char;
                 bg.it[self.row + 1][self.col + 1] = char;
             },
+
             .Bar => {
                 const range = [_]usize{ 0, 1, 2, 3 };
                 switch (self.orientation) { // #
@@ -152,6 +168,7 @@ const Piece = struct {
                     },
                 }
             },
+
             .Tee => {
                 const range = [_]usize{ 0, 1, 2 };
                 switch (self.orientation) {
@@ -177,6 +194,7 @@ const Piece = struct {
                     },
                 }
             },
+
             .KinkL => {
                 switch (self.orientation) {
                     .H1, .H2 => {
@@ -193,6 +211,7 @@ const Piece = struct {
                     },
                 }
             },
+
             .KinkR => {
                 switch (self.orientation) {
                     .H1, .H2 => {
@@ -202,7 +221,6 @@ const Piece = struct {
                         bg.it[self.row + 1][self.col + 1] = char;
                     },
                     .V1, .V2 => {
-                        //  #
                         bg.it[self.row][self.col] = char;
                         bg.it[self.row + 1][self.col] = char;
                         bg.it[self.row + 1][self.col + 1] = char;
@@ -210,6 +228,7 @@ const Piece = struct {
                     },
                 }
             },
+            // TODO
             .ElbowL => {},
             .ElbowR => {},
         }
@@ -233,18 +252,20 @@ const Piece = struct {
         try bg.print();
 
         // PRINT INÚTIL DE INFORMAÇÕES
-        try stdout.print("y:{d}, x:{d}, #{d}, {}, {}\n", .{
+        try stdout.print("y:{d}, x:{d}, #{d}, {}, {}:{}\n", .{
             self.row,
             self.col,
             self.counter,
             self.action,
             self.shape,
+            @enumToInt(self.action),
         });
 
         // contador global
         self.counter += 1;
+
         // Verificar se é possível inicializar as jogadas (conhecida a orientacao e a posição da peça)
-        // i.e. fazer as peças nao se atravessarem ou
+        // i.e. fazer as peças nao se atravessarem na inicializacao ou
         // simplmente finalizar a jogada
         switch (self.shape) {
             // INFO: SQUARE
@@ -257,27 +278,65 @@ const Piece = struct {
             },
             // INFO: BAR
             .Bar => switch (self.orientation) {
-                .H1, .H2 => if (bg.it[self.row + 1][self.col + 0] == '#' or
-                    bg.it[self.row + 1][self.col + 1] == '#' or
-                    bg.it[self.row + 1][self.col + 2] == '#' or
-                    bg.it[self.row + 1][self.col + 3] == '#')
-                {
-                    self.row = 0;
-                    self.col = 3;
-                    return false; // fim d jogada: return false
+                .H1, .H2 => {
+                    if (bg.it[self.row + 1][self.col + 0] == '#' or
+                        bg.it[self.row + 1][self.col + 1] == '#' or
+                        bg.it[self.row + 1][self.col + 2] == '#' or
+                        bg.it[self.row + 1][self.col + 3] == '#')
+                    {
+                        self.row = 0;
+                        self.col = 3;
+                        return false; // fim d jogada: return false
+                    }
                 },
-                .V1, .V2 => if (bg.it[self.row + 4][self.col] == '#') {
-                    self.row = 0;
-                    self.col = 4;
-                    return false; // fim d jogada: return false
+                .V1, .V2 => {
+                    if (bg.it[self.row + 4][self.col] == '#') {
+                        self.row = 0;
+                        self.col = 4;
+                        return false; // fim d jogada: return false
+                    }
                 },
             },
             // TODO: TEE
             .Tee => switch (self.orientation) {
-                .H1 => {},
-                .H2 => {},
-                .V1 => {},
-                .V2 => {},
+                .H1 => {
+                    if (bg.it[self.row + 2][self.col + 0] == '#' or
+                        bg.it[self.row + 2][self.col + 1] == '#' or
+                        bg.it[self.row + 2][self.col + 2] == '#')
+                    {
+                        self.row = 0;
+                        self.col = 3;
+                        return false; // fim d jogada: return false
+                    }
+                },
+                .H2 => {
+                    if (bg.it[self.row + 1][self.col + 0] == '#' or
+                        bg.it[self.row + 1][self.col + 2] == '#' or
+                        bg.it[self.row + 2][self.col + 1] == '#')
+                    {
+                        self.row = 0;
+                        self.col = 3;
+                        return false; // fim d jogada: return false
+                    }
+                },
+                .V1 => {
+                    if (bg.it[self.row + 2][self.col + 0] == '#' or
+                        bg.it[self.row + 3][self.col + 1] == '#')
+                    {
+                        self.row = 0;
+                        self.col = 3;
+                        return false; // fim d jogada: return false
+                    }
+                },
+                .V2 => {
+                    if (bg.it[self.row + 3][self.col + 0] == '#' or
+                        bg.it[self.row + 2][self.col + 1] == '#')
+                    {
+                        self.row = 0;
+                        self.col = 3;
+                        return false; // fim d jogada: return false
+                    }
+                },
             },
 
             // TODO: KINKL
@@ -288,16 +347,15 @@ const Piece = struct {
                 .V2 => {},
             },
 
-            // TODO: KINKL
+            // TODO: KINKLR
             .KinkR => switch (self.orientation) {
                 .H1 => {},
                 .H2 => {},
                 .V1 => {},
                 .V2 => {},
             },
-
-            // TODO: ELBOWL
             // /////////////////////////////////
+            // TODO: ELBOWL
             .ElbowL => switch (self.orientation) {
                 .H1 => {},
                 .H2 => {},
@@ -305,7 +363,7 @@ const Piece = struct {
                 .V2 => {},
             },
 
-            // TODO: KINKR
+            // TODO: ElbowR
             .ElbowR => switch (self.orientation) {
                 .H1 => {},
                 .H2 => {},
@@ -329,10 +387,6 @@ const Piece = struct {
         // inicio do jogo: Se nao der pra jogar -> retorne falso
         if (!try self.init()) return false;
 
-        // TODO: ler o keyboard direto do hardware
-        //  var buf: [1]u8 = undefined;
-        //  _ = try stdin.read(&buf);
-
         // INFO:
         // read the key
         var buf = try bg.read();
@@ -348,15 +402,16 @@ const Piece = struct {
             else => .Down,
         } else .Down;
 
+        // VERIFICAR SO O MOVIMENTO eH POSSIVEL
+        // TODO PERNSAR MELHOR NISSO DAQUI DEPOIS
         switch (self.action) {
             .Down => switch (self.shape) {
-                .Square => if (self.row < 18) {
-                    self.row += 1;
+                .Square, .Tee => {
+                    if (self.row < 18) self.row += 1;
                 },
-                .Bar => if (self.row < 19) {
-                    self.row += 1;
+                .Bar => {
+                    if (self.row < 19) self.row += 1;
                 },
-                .Tee => {},
                 .KinkL => {},
                 .KinkR => {},
                 .ElbowL => {},
@@ -365,11 +420,9 @@ const Piece = struct {
 
             .Left => switch (self.shape) {
                 .Square => {
-                    if (self.col != 0 and (bg.it[self.row][self.col - 1] != '#' or
-                        bg.it[self.row + 1][self.col - 1] != '#'))
-                    {
-                        self.col -= 1;
-                    }
+                    if (self.col != 0 and
+                        (bg.it[self.row + 0][self.col - 1] != '#' or
+                        bg.it[self.row + 1][self.col - 1] != '#')) self.col -= 1;
                 },
                 .Bar => {
                     if (self.col != 0) switch (self.orientation) {
@@ -387,7 +440,25 @@ const Piece = struct {
                     };
                 },
                 // TODO:
-                .Tee => {},
+                .Tee => {
+                    if (self.col != 0) switch (self.orientation) {
+                        .H1 => {
+                            if (bg.it[self.row + 1][self.col - 1] != '#') self.col -= 1;
+                        },
+                        .H2 => {
+                            if (bg.it[self.row + 0][self.col - 1] != '#') self.col -= 1;
+                        },
+                        .V1 => {
+                            if (bg.it[self.row + 1][self.col - 1] != '#') self.col -= 1;
+                        },
+                        .V2 => {
+                            if (bg.it[self.row + 0][self.col - 1] != '#' or
+                                bg.it[self.row + 1][self.col - 1] != '#' or
+                                bg.it[self.row + 2][self.col - 1] != '#')
+                                self.col -= 1;
+                        },
+                    };
+                },
                 .KinkL => {},
                 .KinkR => {},
                 .ElbowL => {},
@@ -396,66 +467,80 @@ const Piece = struct {
 
             .Right => switch (self.shape) {
                 .Square => {
-                    if (self.col != 8 and (bg.it[self.row][self.col + 2] != '#' or
+                    if (self.col < 8 and (bg.it[self.row][self.col + 2] != '#' or
                         bg.it[self.row + 1][self.col + 2] != '#'))
-                    {
                         self.col += 1;
-                    }
                 },
                 .Bar => {
                     switch (self.orientation) {
-                        .V1, .V2 => {
-                            if (self.col != 9) {
-                                if (bg.it[self.row + 0][self.col + 1] != '#' or
-                                    bg.it[self.row + 1][self.col + 1] != '#' or
-                                    bg.it[self.row + 2][self.col + 1] != '#' or
-                                    bg.it[self.row + 3][self.col + 1] != '#')
-                                    self.col += 1;
-                            }
+                        .V1, .V2 => if (self.col < 9) {
+                            if (bg.it[self.row + 0][self.col + 1] != '#' or
+                                bg.it[self.row + 1][self.col + 1] != '#' or
+                                bg.it[self.row + 2][self.col + 1] != '#' or
+                                bg.it[self.row + 3][self.col + 1] != '#') self.col += 1;
                         },
-                        .H1, .H2 => {
-                            if (self.col != 6) {
-                                if (bg.it[self.row][self.col + 4] != '#')
-                                    self.col += 1;
-                            }
+                        .H1, .H2 => if (self.col < 6) {
+                            if (bg.it[self.row][self.col + 4] != '#') self.col += 1;
                         },
                     }
                 },
                 // TODO:
-                .Tee => {},
+                .Tee => {
+                    switch (self.orientation) {
+                        .H1 => if (self.col < 7) {
+                            if (bg.it[self.row + 1][self.col + 2] != '#') self.col += 1;
+                        },
+                        .H2 => if (self.col < 7) {
+                            if (bg.it[self.row + 0][self.col + 2] != '#') self.col += 1;
+                        },
+
+                        .V1 => if (self.col < 8) {
+                            if (bg.it[self.row + 0][self.col + 1] != '#' or
+                                bg.it[self.row + 1][self.col + 1] != '#' or
+                                bg.it[self.row + 2][self.col + 1] != '#') self.col += 1;
+                        },
+                        .V2 => if (self.col < 8) {
+                            if (bg.it[self.row + 1][self.col + 1] != '#') self.col += 1;
+                        },
+                    }
+                },
                 .KinkL => {},
                 .KinkR => {},
                 .ElbowL => {},
                 .ElbowR => {},
             },
 
-            .Rotate => switch (self.shape) {
-                .Square => {},
-                .Bar => {
-                    self.orientation = @intToEnum(Orientation, @enumToInt(self.orientation) + 1);
-                },
-                .Tee => {},
-                .KinkL => {},
-                .KinkR => {},
-                .ElbowL => {},
-                .ElbowR => {},
+            // BUG: pieces bounds
+            .Rotate => {
+                var cur = @enumToInt(self.orientation);
+                switch (self.shape) {
+                    .Square => {},
+                    .Bar, .Tee => {
+                        self.orientation = if (cur < 3) @intToEnum(Orientation, cur + 1) else @intToEnum(Orientation, 0);
+                    },
+                    .KinkL => {},
+                    .KinkR => {},
+                    .ElbowL => {},
+                    .ElbowR => {},
+                }
             },
 
             .Jump => while (try self.init()) : (self.row += 1) {},
-
             .Quit => bg.it[0][4] = '#',
         }
+
         return try self.init();
     }
 };
 
+// GLOBAL
 var bg = BackGround{};
 var playable = true;
 
 pub fn main() !void {
     var rand_init = std.rand.DefaultPrng.init(0);
     while (playable) {
-        var rn = @mod(rand_init.random().int(usize), 2);
+        var rn = @mod(rand_init.random().int(usize), 3);
         var piece = Piece{ .shape = @intToEnum(Shape, rn) };
         while (try piece.play()) {}
     }
