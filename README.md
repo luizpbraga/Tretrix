@@ -18,7 +18,6 @@ It's not working (properly), but one day it will!
   zig run Tretrix/src/main.zig 
 ```
 The `build.zig` is not available yet.
-
-Zig version: `0.10.0-dev.4583+875e98a57`
+Zig version: `0.10.0-dev.4720+9b54c9dee`.
 
 ![](./screenshot/tretrix2610.png)

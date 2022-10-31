@@ -32,7 +32,7 @@ const BackGround = struct {
     const MAXROW: usize = 19;
     const MAXCOL: usize = 9;
 
-    it: [21][10]u8 = .{".".* ** 10} ** 20 ++ .{"#".* ** 10},
+    it: [21][10]u8 = .{" ".* ** 10} ** 20 ++ .{"#".* ** 10},
 
     // Print the Background in stdOut
     fn print(self: *const Self) !void {
@@ -110,14 +110,16 @@ const BackGround = struct {
         raw.cc[os.system.V.TIME] = 0;
         raw.cc[os.system.V.MIN] = 1;
 
-        try os.tcsetattr(tty.handle, .FLUSH, raw);
+        //try os.tcsetattr(tty.handle, .FLUSH, raw);
+        try os.tcsetattr(tty.handle, .NOW, raw);
         var buf: [1]u8 = undefined;
         _ = try tty.read(&buf);
-        try os.tcsetattr(tty.handle, .FLUSH, original);
+        //try os.tcsetattr(tty.handle, .FLUSH, original);
+        try os.tcsetattr(tty.handle, .NOW, original);
         return buf;
     }
 };
-
+// ADD PAUSE
 const Action = enum { Left, Right, Jump, Down, Rotate, Quit };
 
 const Shape = enum { Square, Bar, Tee, ElbowL, ElbowR, KinkL, KinkR };
@@ -236,7 +238,7 @@ const Piece = struct {
 
     /// Apaga a peça
     fn erase(self: *const Self) void {
-        self.draw(.{ .char = '.' });
+        self.draw(.{ .char = ' ' });
     }
 
     /// inicia a peça: REGRAS DO JOGO + FíSICA
@@ -544,5 +546,6 @@ pub fn main() !void {
         var piece = Piece{ .shape = @intToEnum(Shape, rn) };
         while (try piece.play()) {}
     }
+
     try stdout.print("{s}", .{bg.paint("VC PERDEU! UAHSUAHS", .Red)});
 }
