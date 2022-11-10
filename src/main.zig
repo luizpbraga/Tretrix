@@ -58,7 +58,7 @@ const BackGround = struct {
         try stdout.print("+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^+\n", .{});
     }
 
-    /// Check ir a line is full of "#"; If TRUE then delete it
+    /// Check if some line is full of "#"; If TRUE then delete it
     fn checkLine(self: *Self) void {
         var row: usize = 0;
         while (row <= BackGround.MAXROW) : (row += 1)
@@ -96,6 +96,7 @@ const BackGround = struct {
 
         // https://zig.news/lhp/want-to-create-a-tui-application-the-basics-of-uncooked-terminal-io-17gm \
         // thanks Leon
+        // virtual tty
         const original = try os.tcgetattr(tty.handle);
         var raw = original;
 
@@ -144,7 +145,7 @@ const Piece = struct {
     col: usize = 3,
     counter: usize = 1,
 
-    /// Desenha a peça: NAO MODIFICA NADA
+    /// Draw the pieces: NO SIDE EFFECTS
     // DRAW
     fn draw(self: *const Self, conf: struct { char: u8 = '#' }) void {
         const char = conf.char;
@@ -236,24 +237,24 @@ const Piece = struct {
         }
     }
 
-    /// Apaga a peça
+    /// Erase the pieces
     fn erase(self: *const Self) void {
         self.draw(.{ .char = ' ' });
     }
 
-    /// inicia a peça: REGRAS DO JOGO + FíSICA
+    /// Start the game: RULES + PHYSICS
     fn init(self: *Self) !bool {
-        // ''FIM DO JOGO'';
+        // ''GAME OVER'';
         if (std.mem.count(u8, &bg.it[0], "#") != 0) {
             playable = false;
             return false;
         }
 
-        // ATUALIZAR O BG COM A JOGADA ATUAL
+        // UPDATE THE BACKGROUND WITH THE CURRENT MOVE
         self.draw(.{});
         try bg.print();
 
-        // PRINT INÚTIL DE INFORMAÇÕES
+        // USELESS PRINT
         try stdout.print("y:{d}, x:{d}, #{d}, {}, {}:{}\n", .{
             self.row,
             self.col,
@@ -263,12 +264,12 @@ const Piece = struct {
             @enumToInt(self.action),
         });
 
-        // contador global
+        // global counter
         self.counter += 1;
 
         // Verificar se é possível inicializar as jogadas (conhecida a orientacao e a posição da peça)
         // i.e. fazer as peças nao se atravessarem na inicializacao ou
-        // simplmente finalizar a jogada
+        // simplemente finalizar a jogada
         switch (self.shape) {
             // INFO: SQUARE
             .Square => if (bg.it[self.row + 2][self.col] == '#' or
