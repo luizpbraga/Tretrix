@@ -2,6 +2,8 @@
 
 ### Under development 
 
+![](./screenshot/tretrix2610.png)
+
 This is a brainless command line Tetris implementation.
 It's not working (properly), but one day it will!
 
@@ -19,5 +21,3 @@ It's not working (properly), but one day it will!
 ```
 The `build.zig` is not available yet.
 Zig version: `0.10.0-dev.4720+9b54c9dee`.
-
-![](./screenshot/tretrix2610.png)
