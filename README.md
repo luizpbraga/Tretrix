@@ -14,7 +14,7 @@ It's not working (properly), but one day it will!
  - [ ] Kink;
  - [ ] Elbow;
 
-#### Do you want to pay? 
+#### Wanna pay? 
 ```bash 
   git clone https://github.com/luizpbraga/Tretrix
   zig run Tretrix/src/main.zig 
